@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="SmartOffer.Api/SmartOffer.Api.csproj" />
+  <Project Path="SmartOffer.IntegrationTests/SmartOffer.IntegrationTests.csproj" />
+  <Project Path="SmartOffer.UnitTests/SmartOffer.UnitTests.csproj" />
+</Solution>
