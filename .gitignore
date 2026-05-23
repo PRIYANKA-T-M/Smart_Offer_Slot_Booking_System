@@ -21,10 +21,3 @@ Swagger/
 **/bin/
 **/obj/
 **/TestResults/
-.env
-bin/
-obj/
-SmartOffer.Backend/bin/
-SmartOffer.Backend/obj/
-SmartOffer.Tests/SmartOffer.Tests/bin/
-SmartOffer.Tests/SmartOffer.Tests/obj/
