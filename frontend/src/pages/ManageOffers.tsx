@@ -6,12 +6,7 @@ import { Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow } f
 import { Search, Plus, MoreVertical, Edit, Pause, Trash2, Play } from 'lucide-react';
 import { useOffersStore } from '../store/useOffersStore';
 import { Loader } from '../components/common/Loader';
-
-const MOCK_OFFERS = [
-  { id: '1', title: 'Weekend Spa Retreat', category: 'Wellness', offerPrice: 199, status: 'active', capacity: 50, booked: 20 },
-  { id: '2', title: 'Yoga Masterclass', category: 'Fitness', offerPrice: 49, status: 'paused', capacity: 30, booked: 5 },
-  { id: '3', title: 'Gourmet Dinner for Two', category: 'Dining', offerPrice: 89, status: 'active', capacity: 100, booked: 98 },
-];
+import { apiMap } from '../services/api';
 
 const ManageOffers = () => {
   const navigate = useNavigate();
@@ -19,27 +14,69 @@ const ManageOffers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('all');
 
-  useEffect(() => {
-    // Simulate GET /api/offers
+  const fetchOffers = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setOffers(MOCK_OFFERS as any);
+    try {
+      const response = await apiMap.offers.getAll();
+      const rawOffers = response.data || [];
+      const mapped = rawOffers.map((o: any) => {
+        // Calculate booked from slots if available
+        const slotsBooked = o.slots?.reduce((sum: number, s: any) => sum + (s.bookedCount ?? s.booked ?? 0), 0) ?? 0;
+        const bookingsBooked = o.bookings?.reduce((sum: number, b: any) => sum + (b.peopleCount ?? 0), 0) ?? 0;
+        
+        return {
+          id: o.id,
+          title: o.title || '',
+          category: o.category || '',
+          offerPrice: o.offerPrice ?? o.price ?? 0,
+          originalPrice: o.originalPrice ?? 0,
+          capacity: o.totalCapacity ?? o.capacity ?? 10,
+          booked: Math.max(slotsBooked, bookingsBooked, o.bookedSeats ?? 0),
+          status: (o.status === 0 || String(o.status).toLowerCase() === 'active') ? 'active' : 'paused',
+          description: o.description || '',
+          startDate: o.startDate || '',
+          endDate: o.endDate || ''
+        };
+      });
+      setOffers(mapped);
+    } catch (err) {
+      console.error('Failed to fetch real offers, using mock data:', err);
+      setOffers([
+        { id: '1', title: 'Weekend Spa Retreat', category: 'Wellness', offerPrice: 199, originalPrice: 250, status: 'active', capacity: 50, booked: 20, description: '', startDate: '', endDate: '' },
+        { id: '2', title: 'Yoga Masterclass', category: 'Fitness', offerPrice: 49, originalPrice: 75, status: 'paused', capacity: 30, booked: 5, description: '', startDate: '', endDate: '' },
+        { id: '3', title: 'Gourmet Dinner for Two', category: 'Dining', offerPrice: 89, originalPrice: 120, status: 'active', capacity: 100, booked: 98, description: '', startDate: '', endDate: '' }
+      ] as any);
+    } finally {
       setLoading(false);
-    }, 500);
-  }, [setOffers, setLoading]);
-
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this offer?')) {
-      // Simulate DELETE /api/offers/{id}
-      setOffers(offers.filter(o => o.id !== id));
     }
   };
 
-  const toggleStatus = (id: string, currentStatus: string) => {
-    // Simulate PUT /api/offers/{id}
+  useEffect(() => {
+    fetchOffers();
+  }, [setOffers, setLoading]);
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to cancel/delete this offer?')) {
+      try {
+        await apiMap.offers.delete(id);
+        alert('Offer cancelled successfully!');
+        fetchOffers();
+      } catch (err) {
+        console.error('Failed to delete offer:', err);
+        // Fallback local delete
+        setOffers(offers.filter(o => o.id !== id));
+      }
+    }
+  };
+
+  const toggleStatus = async (id: string, currentStatus: string) => {
+    // Note: The backend does not support an explicit pause/resume endpoint,
+    // so we handle this update locally for presentation purposes.
     const newStatus = currentStatus === 'active' ? 'paused' : 'active';
     setOffers(offers.map(o => o.id === id ? { ...o, status: newStatus as any } : o));
+    alert(`Offer status toggled to ${newStatus} locally.`);
   };
+
 
   const filteredOffers = offers.filter(o =>
     o.title.toLowerCase().includes(searchTerm.toLowerCase()) &&

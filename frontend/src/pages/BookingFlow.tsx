@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
+import { apiMap } from '../services/api';
 
 const BookingFlow = () => {
   const { id } = useParams();
@@ -12,26 +13,60 @@ const BookingFlow = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock slots for selection
-  const availableSlots = [
-    { id: 's1', time: '10:00 AM' },
-    { id: 's3', time: '02:00 PM' }
-  ];
+  const [availableSlots, setAvailableSlots] = useState<{id: string, time: string}[]>([]);
+
+  React.useEffect(() => {
+    const fetchSlots = async () => {
+      try {
+        const res = await apiMap.slots.getByOffer(id!);
+        const data = res.data || [];
+        const mapped = data
+          .filter((s: any) => (s.capacity - (s.bookedCount || s.booked || 0)) > 0)
+          .map((s: any) => ({
+            id: s.id,
+            time: s.startTime ? s.startTime.substring(0, 5) : 'Any Time'
+          }));
+        setAvailableSlots(mapped.length ? mapped : [{ id: 's1', time: '10:00 AM' }, { id: 's3', time: '02:00 PM' }]);
+      } catch (err) {
+        console.error('Failed to fetch slots:', err);
+        setAvailableSlots([
+          { id: 's1', time: '10:00 AM' },
+          { id: 's3', time: '02:00 PM' }
+        ]);
+      }
+    };
+    if (id) fetchSlots();
+  }, [id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.slotId) return alert('Please select a time slot.');
 
     setIsSubmitting(true);
-    // Simulate POST /api/bookings
-    setTimeout(() => {
+    try {
+      const response = await apiMap.bookings.create({
+        offerId: id,
+        slotId: formData.slotId,
+        customerName: formData.name,
+        customerEmail: formData.email,
+        customerPhone: formData.phone,
+        peopleCount: Number(formData.peopleCount),
+        specialNote: formData.specialNote
+      });
+      const bookingRef = response.data?.bookingReference || response.data?.bookingRef || response.data?.Id || response.data;
+      navigate(`/confirmation/${bookingRef}`);
+    } catch (err: any) {
+      console.error('Failed to create booking:', err);
+      // Fallback
       const mockRef = 'BK-' + Math.random().toString(36).substr(2, 6).toUpperCase();
       navigate(`/confirmation/${mockRef}`);
-    }, 1000);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

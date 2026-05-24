@@ -7,10 +7,15 @@ const PublicNavbar = () => {
     <header className="h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex items-center justify-between px-6 z-10 sticky top-0">
       <Link to="/" className="font-bold text-2xl text-primary-600">SmartOffer</Link>
       <nav className="flex items-center gap-4">
+        <Link to="/customer/login">
+          <Button variant="outline">Customer Login</Button>
+        </Link>
         <Link to="/login">
           <Button variant="ghost">Business Login</Button>
         </Link>
-        <Button>Sign Up</Button>
+        <Link to="/customer/signup">
+          <Button>Sign Up</Button>
+        </Link>
       </nav>
     </header>
   );

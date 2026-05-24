@@ -11,6 +11,9 @@ import OfferDetail from './pages/OfferDetail';
 import BookingFlow from './pages/BookingFlow';
 import BookingConfirmation from './pages/BookingConfirmation';
 import AdminLogin from './pages/AdminLogin';
+import AdminSignup from './pages/AdminSignup';
+import CustomerLogin from './pages/CustomerLogin';
+import CustomerSignup from './pages/CustomerSignup';
 
 // Protected Pages
 import Dashboard from './pages/Dashboard';
@@ -33,6 +36,9 @@ function App() {
         </Route>
 
         <Route path="/login" element={<AdminLogin />} />
+        <Route path="/signup" element={<AdminSignup />} />
+        <Route path="/customer/login" element={<CustomerLogin />} />
+        <Route path="/customer/signup" element={<CustomerSignup />} />
 
         {/* Protected Routes (Admin/Business) */}
         <Route element={<AppLayout />}>

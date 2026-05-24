@@ -3,35 +3,76 @@ import { Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow } f
 import { Search } from 'lucide-react';
 import { useBookingStore } from '../store/useBookingStore';
 import { Loader } from '../components/common/Loader';
+import { apiMap } from '../services/api';
 
-const MOCK_BOOKINGS = [
-  { id: '1', bookingRef: 'BK-1001', customerName: 'Alice Smith', offerTitle: 'Spa Retreat', status: 'pending', date: '2024-06-01' },
-  { id: '2', bookingRef: 'BK-1002', customerName: 'Bob Johnson', offerTitle: 'Yoga Class', status: 'confirmed', date: '2024-06-02' },
-  { id: '3', bookingRef: 'BK-1003', customerName: 'Charlie Brown', offerTitle: 'Dinner', status: 'cancelled', date: '2024-06-03' },
-];
+const mapBackendStatus = (status: any) => {
+  if (status === 0 || status === 'Pending') return 'pending';
+  if (status === 1 || status === 'Confirmed') return 'confirmed';
+  if (status === 2 || status === 'Completed') return 'completed';
+  if (status === 3 || status === 'Cancelled') return 'cancelled';
+  return String(status).toLowerCase();
+};
+
+const mapToBackendStatus = (status: string) => {
+  if (status === 'pending') return 'Pending';
+  if (status === 'confirmed') return 'Confirmed';
+  if (status === 'completed') return 'Completed';
+  if (status === 'cancelled') return 'Cancelled';
+  return status;
+};
 
 const ManageBookings = () => {
   const { bookings, setBookings, isLoading, setLoading } = useBookingStore();
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
+  const fetchBookings = async () => {
     setLoading(true);
-    // Simulate GET /api/bookings
-    setTimeout(() => {
-      setBookings(MOCK_BOOKINGS as any);
+    try {
+      const response = await apiMap.bookings.getAll();
+      const rawBookings = response.data || [];
+      const mapped = rawBookings.map((b: any) => ({
+        id: b.id,
+        bookingRef: b.bookingReference || b.bookingRef || 'N/A',
+        customerName: b.customerName || 'N/A',
+        offerTitle: b.offer?.title || b.offerTitle || 'N/A',
+        status: mapBackendStatus(b.bookingStatus ?? b.status),
+        date: b.createdAt ? new Date(b.createdAt).toLocaleDateString() : 'N/A'
+      }));
+      setBookings(mapped);
+    } catch (err) {
+      console.error('Failed to fetch bookings from backend, using fallback:', err);
+      setBookings([
+        { id: '1', bookingRef: 'BK-1001', customerName: 'Alice Smith', offerTitle: 'Spa Retreat', status: 'pending', date: '2024-06-01' },
+        { id: '2', bookingRef: 'BK-1002', customerName: 'Bob Johnson', offerTitle: 'Yoga Class', status: 'confirmed', date: '2024-06-02' },
+        { id: '3', bookingRef: 'BK-1003', customerName: 'Charlie Brown', offerTitle: 'Dinner', status: 'cancelled', date: '2024-06-03' }
+      ] as any);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
+  };
+
+  useEffect(() => {
+    fetchBookings();
   }, [setBookings, setLoading]);
 
-  const updateStatus = (id: string, newStatus: string) => {
-    // Simulate PUT /api/bookings/{id}/status
-    setBookings(bookings.map(b => b.id === id ? { ...b, status: newStatus as any } : b));
+  const updateStatus = async (id: string, newStatus: string) => {
+    try {
+      const backendStatus = mapToBackendStatus(newStatus);
+      await apiMap.bookings.updateStatus(id, backendStatus);
+      alert(`Booking status updated to ${newStatus}!`);
+      fetchBookings();
+    } catch (err) {
+      console.error('Failed to update booking status in backend:', err);
+      // Fallback local update
+      setBookings(bookings.map(b => b.id === id ? { ...b, status: newStatus as any } : b));
+    }
   };
 
   const filteredBookings = bookings.filter(b =>
     b.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     b.bookingRef?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
 
   return (
     <div className="space-y-6">

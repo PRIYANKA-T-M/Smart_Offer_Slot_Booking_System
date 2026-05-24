@@ -4,6 +4,7 @@ import { OfferCard } from '../components/features/OfferCard';
 import { Input } from '../components/common/Input';
 import { useOffersStore } from '../store/useOffersStore';
 import { Loader } from '../components/common/Loader';
+import { apiMap } from '../services/api';
 
 const MOCK_PUBLIC_OFFERS = [
   { id: '1', title: 'Full Body Massage', businessName: 'Relax Spa', offerPrice: 50, originalPrice: 100, discountPercentage: 50, expiryTimer: '2 days', slots: 5, category: 'Wellness', type: 'Service' },
@@ -17,12 +18,33 @@ const PublicListing = () => {
   const [filters, setFilters] = useState({ type: '', category: '', date: '', maxPrice: '', availableOnly: false });
 
   useEffect(() => {
-    // Simulate GET /api/offers public
-    setLoading(true);
-    setTimeout(() => {
-      setOffers(MOCK_PUBLIC_OFFERS as any);
-      setLoading(false);
-    }, 600);
+    const fetchOffers = async () => {
+      setLoading(true);
+      try {
+        const response = await apiMap.offers.getAll();
+        const rawOffers = response.data || [];
+        const mapped = rawOffers.map((o: any) => ({
+          id: o.id,
+          title: o.title || '',
+          businessName: o.business?.name || 'Local Business',
+          offerPrice: o.offerPrice ?? o.price ?? 0,
+          originalPrice: o.originalPrice ?? 0,
+          discountPercentage: o.originalPrice && o.offerPrice ? Math.round(((o.originalPrice - o.offerPrice) / o.originalPrice) * 100) : 0,
+          expiryTimer: o.endDate ? new Date(o.endDate).toLocaleDateString() : 'N/A',
+          slots: o.totalCapacity ?? o.capacity ?? 10,
+          category: o.category || 'General',
+          type: 'Service'
+        }));
+        setOffers(mapped);
+      } catch (err) {
+        console.error('Failed to fetch public offers, using mock:', err);
+        setOffers(MOCK_PUBLIC_OFFERS as any);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOffers();
   }, [setOffers, setLoading]);
 
   return (

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
+import { apiMap } from '../services/api';
 
 const CreateOffer = () => {
   const navigate = useNavigate();
@@ -10,6 +11,42 @@ const CreateOffer = () => {
     title: '', description: '', category: '', originalPrice: '', offerPrice: '',
     startDate: '', endDate: '', capacity: '', terms: '', bookingLimits: ''
   });
+  const [businessId, setBusinessId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchBusiness = async () => {
+      try {
+        const res = await apiMap.business.get();
+        const list = res.data || [];
+        if (list.length > 0) {
+          setBusinessId(list[0].id);
+        } else {
+          // Auto create a default business profile if none exists
+          const defaults = {
+            name: 'Default Wellness Center',
+            businessType: 'Wellness & Spa',
+            ownerName: 'Admin Owner',
+            phone: '555-0199',
+            email: 'business@example.com',
+            address: '100 Spa Blvd',
+            city: 'New York',
+            openingTime: '09:00:00',
+            closingTime: '18:00:00',
+            logo: 'logo.png'
+          };
+          const createRes = await apiMap.business.create(defaults);
+          setBusinessId(createRes.data?.id || createRes.data);
+        }
+      } catch (err) {
+        console.error('Failed to get business profile', err);
+        // Fallback hardcoded GUID
+        setBusinessId('11111111-1111-1111-1111-111111111111');
+      }
+    };
+    fetchBusiness();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -19,12 +56,67 @@ const CreateOffer = () => {
     ? Math.round(((Number(formData.originalPrice) - Number(formData.offerPrice)) / Number(formData.originalPrice)) * 100)
     : 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate POST /api/offers
-    alert('Offer created successfully!');
-    navigate('/offers');
+    setIsLoading(true);
+    setError('');
+
+    // Parse datetimes into DateOnly (YYYY-MM-DD) and TimeSpan (HH:MM:SS) for backend
+    const [startDateVal, startTimeVal] = formData.startDate.split('T');
+    const [endDateVal, endTimeVal] = formData.endDate.split('T');
+
+    if (!startDateVal || !endDateVal) {
+      setError('Please select valid start and end dates.');
+      setIsLoading(false);
+      return;
+    }
+
+    const offerRequest = {
+      businessId: businessId || '11111111-1111-1111-1111-111111111111',
+      title: formData.title,
+      description: formData.description,
+      category: formData.category,
+      originalPrice: Number(formData.originalPrice),
+      offerPrice: Number(formData.offerPrice),
+      startDate: startDateVal,
+      endDate: endDateVal,
+      startTime: startTimeVal ? `${startTimeVal}:00` : '09:00:00',
+      endTime: endTimeVal ? `${endTimeVal}:00` : '18:00:00',
+      totalCapacity: Number(formData.capacity),
+      maxBookingPerCustomer: Number(formData.bookingLimits || 1),
+      termsAndConditions: formData.terms
+    };
+
+    try {
+      // 1. Create the offer
+      const response = await apiMap.offers.create(offerRequest);
+      const offerId = response.data?.id || response.data?.Id || response.data;
+
+      if (offerId) {
+        // 2. Automatically generate an initial slot for the offer
+        await apiMap.slots.create({
+          offerId,
+          slotDate: startDateVal,
+          startTime: startTimeVal ? `${startTimeVal}:00` : '09:00:00',
+          endTime: endTimeVal ? `${endTimeVal}:00` : '18:00:00',
+          capacity: Number(formData.capacity)
+        });
+      }
+
+      alert('Offer published successfully with an initial slot!');
+      navigate('/offers');
+    } catch (err: any) {
+      console.error('Failed to create offer or slots:', err);
+      if (err.response && err.response.data && err.response.data.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Failed to create offer. Ensure Offer Price is lower than Original Price.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
+
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -35,7 +127,13 @@ const CreateOffer = () => {
 
       <Card className="p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="p-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400 font-medium">
+              {error}
+            </div>
+          )}
           <Input label="Offer Title" name="title" value={formData.title} onChange={handleChange} required />
+
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>

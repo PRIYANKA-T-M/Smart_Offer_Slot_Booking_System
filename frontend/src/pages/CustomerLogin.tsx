@@ -6,24 +6,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { Card } from '../components/common/Card';
 import { apiMap } from '../services/api';
 
-const parseJwt = (token: string) => {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      window
-        .atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch (e) {
-    return null;
-  }
-};
-
-const AdminLogin = () => {
+const CustomerLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -39,14 +22,10 @@ const AdminLogin = () => {
     try {
       const response = await apiMap.auth.login({ email, password });
       const { token } = response.data;
-      const decoded = parseJwt(token);
       
-      const roleClaim = decoded ? (decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || decoded.role) : 'business';
-      const emailClaim = decoded ? (decoded.email || email) : email;
-      const idClaim = decoded ? (decoded.sub || '1') : '1';
-
-      login({ id: idClaim, email: emailClaim, role: roleClaim }, token);
-      navigate('/dashboard');
+      // Simple mock parse for frontend logic
+      login({ id: 'customer-1', email, role: 'customer' }, token);
+      navigate('/'); // Customers just browse offers
     } catch (err: any) {
       console.error('Login error:', err);
       if (err.response && err.response.data && err.response.data.message) {
@@ -59,13 +38,12 @@ const AdminLogin = () => {
     }
   };
 
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
       <Card className="w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin Login</h1>
-          <p className="text-gray-500 mt-2">Sign in to manage your business</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customer Login</h1>
+          <p className="text-gray-500 mt-2">Sign in to book amazing offers</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -81,7 +59,7 @@ const AdminLogin = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            placeholder="admin@example.com"
+            placeholder="user@example.com"
           />
           <Input
             label="Password"
@@ -106,7 +84,7 @@ const AdminLogin = () => {
 
           <div className="text-center mt-4">
             <span className="text-sm text-gray-600 dark:text-gray-400">Don't have an account? </span>
-            <Link to="/signup" className="text-sm text-primary-600 hover:text-primary-700 font-medium">Sign up</Link>
+            <Link to="/customer/signup" className="text-sm text-primary-600 hover:text-primary-700 font-medium">Sign up</Link>
           </div>
         </form>
       </Card>
@@ -114,4 +92,4 @@ const AdminLogin = () => {
   );
 };
 
-export default AdminLogin;
+export default CustomerLogin;

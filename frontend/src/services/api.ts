@@ -18,6 +18,7 @@ api.interceptors.request.use((config) => {
 export const apiMap = {
   auth: {
     login: (data: any) => api.post('/auth/login', data),
+    register: (data: any) => api.post('/auth/register', data),
   },
   business: {
     create: (data: any) => api.post('/business', data),

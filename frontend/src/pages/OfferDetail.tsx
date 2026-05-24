@@ -4,6 +4,7 @@ import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Loader } from '../components/common/Loader';
 import { MapPin, Clock, Info, Calendar as CalendarIcon } from 'lucide-react';
+import { apiMap } from '../services/api';
 
 const OfferDetail = () => {
   const { id } = useParams();
@@ -12,26 +13,57 @@ const OfferDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate GET /api/offers/{id}
-    setTimeout(() => {
-      setOffer({
-        id,
-        title: 'Full Body Massage Package',
-        businessName: 'Relax Spa Center',
-        description: 'Enjoy a 60-minute full body deep tissue massage with aromatherapy. Perfect for relieving stress and muscle tension.',
-        terms: 'Must be booked 24h in advance. Non-refundable. Please arrive 15 minutes early.',
-        location: '123 Wellness Ave, New York, NY 10001',
-        offerPrice: 50,
-        originalPrice: 100,
-        discountPercentage: 50,
-        slots: [
-          { id: 's1', time: '10:00 AM', available: true },
-          { id: 's2', time: '11:30 AM', available: false },
-          { id: 's3', time: '02:00 PM', available: true },
-        ]
-      });
-      setIsLoading(false);
-    }, 500);
+    const fetchOffer = async () => {
+      setIsLoading(true);
+      try {
+        const [offerRes, slotsRes] = await Promise.all([
+          apiMap.offers.getById(id!),
+          apiMap.slots.getByOffer(id!)
+        ]);
+
+        const o = offerRes.data;
+        const slotsData = slotsRes.data || [];
+
+        setOffer({
+          id,
+          title: o.title || 'Offer Details',
+          businessName: o.business?.name || 'Local Business',
+          description: o.description || 'No description provided.',
+          terms: o.termsAndConditions || o.terms || 'Standard terms apply.',
+          location: o.business?.address || o.location || 'See business page',
+          offerPrice: o.offerPrice ?? o.price ?? 0,
+          originalPrice: o.originalPrice ?? 0,
+          discountPercentage: o.originalPrice && o.offerPrice ? Math.round(((o.originalPrice - o.offerPrice) / o.originalPrice) * 100) : 0,
+          slots: slotsData.map((s: any) => ({
+            id: s.id,
+            time: s.startTime ? s.startTime.substring(0, 5) : 'Any Time',
+            available: (s.capacity - (s.bookedCount || s.booked || 0)) > 0
+          }))
+        });
+      } catch (err) {
+        console.error('Failed to fetch offer details, using mock:', err);
+        setOffer({
+          id,
+          title: 'Full Body Massage Package',
+          businessName: 'Relax Spa Center',
+          description: 'Enjoy a 60-minute full body deep tissue massage with aromatherapy. Perfect for relieving stress and muscle tension.',
+          terms: 'Must be booked 24h in advance. Non-refundable. Please arrive 15 minutes early.',
+          location: '123 Wellness Ave, New York, NY 10001',
+          offerPrice: 50,
+          originalPrice: 100,
+          discountPercentage: 50,
+          slots: [
+            { id: 's1', time: '10:00 AM', available: true },
+            { id: 's2', time: '11:30 AM', available: false },
+            { id: 's3', time: '02:00 PM', available: true },
+          ]
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (id) fetchOffer();
   }, [id]);
 
   if (isLoading) return <div className="p-8"><Loader /></div>;

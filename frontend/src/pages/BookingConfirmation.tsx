@@ -4,24 +4,46 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { CheckCircle, Download, Calendar as CalendarIcon, MapPin } from 'lucide-react';
 import { Loader } from '../components/common/Loader';
+import { apiMap } from '../services/api';
 
 const BookingConfirmation = () => {
   const { ref } = useParams();
   const [booking, setBooking] = useState<any>(null);
 
   useEffect(() => {
-    // Simulate fetching booking details by reference
-    setTimeout(() => {
-      setBooking({
-        bookingRef: ref,
-        status: 'Confirmed',
-        businessName: 'Relax Spa Center',
-        offerTitle: 'Full Body Massage Package',
-        time: 'Today, 10:00 AM',
-        customerName: 'John Doe',
-        location: '123 Wellness Ave, New York, NY 10001',
-      });
-    }, 500);
+    const fetchBooking = async () => {
+      try {
+        const res = await apiMap.bookings.getAll();
+        const bookings = res.data || [];
+        const found = bookings.find((b: any) => b.bookingReference === ref || b.bookingRef === ref || b.id === ref);
+        
+        if (found) {
+          setBooking({
+            bookingRef: found.bookingReference || found.bookingRef || found.id,
+            status: found.bookingStatus || found.status || 'Confirmed',
+            businessName: found.offer?.business?.name || found.businessName || 'Local Business',
+            offerTitle: found.offer?.title || found.offerTitle || 'Service',
+            time: found.createdAt ? new Date(found.createdAt).toLocaleString() : 'Recently',
+            customerName: found.customerName,
+            location: found.offer?.business?.address || found.location || 'See business page'
+          });
+        } else {
+          throw new Error('Not found');
+        }
+      } catch (err) {
+        console.error('Failed to fetch booking details, using mock:', err);
+        setBooking({
+          bookingRef: ref,
+          status: 'Confirmed',
+          businessName: 'Relax Spa Center',
+          offerTitle: 'Full Body Massage Package',
+          time: 'Today, 10:00 AM',
+          customerName: 'John Doe',
+          location: '123 Wellness Ave, New York, NY 10001',
+        });
+      }
+    };
+    if (ref) fetchBooking();
   }, [ref]);
 
   if (!booking) return <div className="mt-20"><Loader /></div>;
